@@ -4,7 +4,7 @@ A full-stack food delivery application built using **Flutter, Node.js, Express.j
 
 
 
-- GitHub: [Add your GitHub profile or repository link](https://github.com/Deepakpanchal07/food-delivery-app)
+- GitHub: [GitHub repository link](https://github.com/Deepakpanchal07/food-delivery-app)
 ## 📸 Screenshots
 
 Add your application screenshots in the `screenshots/` folder.
