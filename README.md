@@ -7,9 +7,6 @@ A full-stack food delivery application built using **Flutter, Node.js, Express.j
 - GitHub: [GitHub repository link](https://github.com/Deepakpanchal07/food-delivery-app)
 ## 📸 Screenshots
 
-Add your application screenshots in the `screenshots/` folder.
-## 📸 Screenshots
-
 ### 🏠 Home Screen
 <img width="950" alt="Foodie Home Screen" src="https://github.com/user-attachments/assets/3856d458-64ed-4765-b905-47989c6827da" />
 
