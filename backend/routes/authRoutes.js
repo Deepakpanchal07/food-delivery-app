@@ -9,6 +9,7 @@ const {
     verifyOtp,
     resetPassword,
     verifyEmailOtp,
+    resendEmailOtp,
 } = require("../controllers/authController");
 const AuthMiddleware = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
@@ -27,6 +28,7 @@ router.post("/verify-otp",verifyOtp)
 router.post("/reset-password",resetPassword);
 router.get("/customers", AuthMiddleware, adminMiddleware, getCustomers);
 router.post("/verify-email-otp", verifyEmailOtp);
+router.post("/resend-email-otp", resendEmailOtp);
 
  
  

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/features/auth/screens/sign_in_screen.dart';
 import 'package:frontend/features/auth/services/auth_service.dart';
 import 'package:frontend/features/favorites/screens/favorites_screen.dart';
 import 'package:frontend/features/favorites/services/favorite_service.dart';
@@ -66,20 +65,6 @@ String? currentUserRole;
     }
   }
 
-  Future<void> _logout() async {
-    await AuthService().logout();
-
-    if (!mounted) return;
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const SignInScreen(),
-      ),
-      (route) => false,
-    );
-  }
-
   void _openRestaurant(Restaurant restaurant) {
     Navigator.push(
       context,
@@ -137,19 +122,74 @@ String? currentUserRole;
               );
             },
           ),
-          IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: _logout,
-          ),
         ],
       ),
 
-      body: Column(
+      body: FutureBuilder<List<Restaurant>>(
+  future: _restaurantsFuture,
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFFFF6B35),
+        ),
+      );
+    }
+
+    if (snapshot.hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 55,
+                color: Colors.grey,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Could not load restaurants.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _refreshRestaurants,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B35),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final restaurants = snapshot.data ?? [];
+
+    final filteredRestaurants = restaurants.where((restaurant) {
+      final name = restaurant.name.toLowerCase();
+      final cuisine = restaurant.cuisine.toLowerCase();
+
+      return name.contains(_searchQuery) ||
+          cuisine.contains(_searchQuery);
+    }).toList();
+
+    return RefreshIndicator(
+      color: const Color(0xFFFF6B35),
+      onRefresh: _refreshRestaurants,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 16),
         children: [
-          // Customer welcome and search section
+          // Hungry banner and search bar scroll together
+          // with the restaurant list.
           Container(
             width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 18),
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
             decoration: const BoxDecoration(
               color: Color(0xFFFF6B35),
@@ -177,39 +217,41 @@ String? currentUserRole;
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value.trim().toLowerCase();
-                    });
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Search restaurants or cuisine...',
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: Color(0xFFFF6B35),
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 14,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.trim().toLowerCase();
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search restaurants or cuisine...',
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFFFF6B35),
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                 ),
@@ -217,133 +259,69 @@ String? currentUserRole;
             ),
           ),
 
-          // Restaurant listing
-          Expanded(
-            child: FutureBuilder<List<Restaurant>>(
-              future: _restaurantsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFFFF6B35),
-                    ),
-                  );
-                }
+          // Restaurant heading and cards are part of the same scroll.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Popular Restaurants',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF292321),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${filteredRestaurants.length} restaurants available',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.wifi_off_rounded,
-                            size: 55,
+                if (filteredRestaurants.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 55),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.search_off_rounded,
+                          size: 60,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          restaurants.isEmpty
+                              ? 'No restaurants available yet.'
+                              : 'No matching restaurants found.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
                             color: Colors.grey,
                           ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Could not load restaurants.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _refreshRestaurants,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(0xFFFF6B35),
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Try Again'),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  );
-                }
-
-                final restaurants = snapshot.data ?? [];
-
-                final filteredRestaurants =
-                    restaurants.where((restaurant) {
-                  final name =
-                      restaurant.name.toLowerCase();
-                  final cuisine =
-                      restaurant.cuisine.toLowerCase();
-
-                  return name.contains(_searchQuery) ||
-                      cuisine.contains(_searchQuery);
-                }).toList();
-
-                return RefreshIndicator(
-                  color: const Color(0xFFFF6B35),
-                  onRefresh: _refreshRestaurants,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      const Text(
-                        'Popular Restaurants',
-                        style: TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF292321),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${filteredRestaurants.length} restaurants available',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      if (filteredRestaurants.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 55,
-                          ),
-                          child: Column(
-                            children: [
-                              const Icon(
-                                Icons.search_off_rounded,
-                                size: 60,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                restaurants.isEmpty
-                                    ? 'No restaurants available yet.'
-                                    : 'No matching restaurants found.',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      ...filteredRestaurants.map((restaurant) {
-                        return _RestaurantCard(
-                          restaurant: restaurant,
-                          onTap: () =>
-                              _openRestaurant(restaurant),
-                        );
-                      }),
-                    ],
                   ),
-                );
-              },
+
+                ...filteredRestaurants.map((restaurant) {
+                  return _RestaurantCard(
+                    restaurant: restaurant,
+                    onTap: () => _openRestaurant(restaurant),
+                  );
+                }),
+              ],
             ),
           ),
         ],
       ),
+    );
+  },
+),
     );
   }
 }

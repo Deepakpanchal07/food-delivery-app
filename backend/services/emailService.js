@@ -10,6 +10,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+async function verifyEmailConnection() {
+  try {
+    await transporter.verify();
+
+    console.log("✅ Gmail SMTP connection successful");
+    return true;
+  } catch (error) {
+    console.error("❌ Gmail SMTP connection failed:", error.message);
+    return false;
+  }
+}
+
 async function sendTestEmail(to) {
   await transporter.verify();
 
@@ -46,33 +58,41 @@ If you did not request a password reset, please ignore this email.`,
   });
 }
 
+
+
+
 async function sendEmailVerificationOtpEmail(to, otp) {
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to,
-    subject: "Food Delivery App - Verify Your Email",
-    text: `Your email verification OTP is: ${otp}
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to,
+      subject: "Food Delivery App - Email Test",
+      text: `Your email verification OTP is: ${otp}
 
 This OTP expires in 10 minutes.
 
 If you did not create this account, please ignore this email.`,
-    html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h2>Verify Your Email</h2>
-        <p>Use this OTP to verify your Food Delivery App account:</p>
-        <div style="font-size: 30px; font-weight: bold;
-          letter-spacing: 8px; color: #FF6B35; padding: 16px 0;">
-          ${otp}
-        </div>
-        <p>This OTP expires in 10 minutes.</p>
-        <p>If you did not create this account, please ignore this email.</p>
-      </div>
-    `,
-  });
+    });
+
+    console.log("OTP recipient:", to);
+    console.log("Accepted:", info.accepted);
+    console.log("Rejected:", info.rejected);
+    console.log("Response:", info.response);
+    console.log("Message ID:", info.messageId);
+
+    return info;
+  } catch (error) {
+    console.error("OTP email failed:", error.message);
+    throw error;
+  }
 }
+
+
+
 
 module.exports = {
   sendTestEmail,
   sendPasswordResetOtpEmail,
   sendEmailVerificationOtpEmail,
+  verifyEmailConnection,
 };

@@ -8,6 +8,11 @@ const authRoutes = require("./routes/authRoutes");
 const mongoose = require("mongoose");
 const restaurantRoutes = require("./routes/restaurantRoutes");
 const menuRoutes = require("./routes/menuRoutes");
+const { verifyEmailConnection } = require("./services/emailService");
+
+
+
+verifyEmailConnection();
 
 
 

@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:frontend/features/auth/screens/sign_in_screen.dart';
 import 'package:frontend/features/cart/screens/my_orders_screen.dart';
 
 import '../../auth/services/auth_service.dart';
@@ -222,6 +223,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ),
   );
 }
+
+
+
+    Future<void> _confirmLogout() async {
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFFF6B35),
+                ),
+                SizedBox(width: 10),
+                Expanded(child: Text('Confirm Logout')),
+              ],
+            ),
+            content: const Text(
+              'Are you sure you want to logout from your account?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, false);
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B35),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.pop(dialogContext, true);
+                },
+                child: const Text('Logout'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldLogout != true || !mounted) return;
+
+      try {
+        await _authService.logout();
+
+        if (!mounted) return;
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SignInScreen(),
+          ),
+          (route) => false,
+        );
+      } catch (error) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not logout. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
 
   @override
   Widget build(BuildContext context) {
@@ -478,6 +551,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: _openChangePassword,
                 ),
               ),
+              
+                const SizedBox(height: 24),
+
+                Card(
+                  color: Colors.white,
+                  elevation: 0,
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: const BorderSide(
+                      color: Color(0xFFFFE0D6),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 6,
+                    ),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.logout_rounded,
+                        color: Colors.red,
+                      ),
+                    ),
+                    title: const Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    subtitle: const Text('Sign out from your account'),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.red,
+                    ),
+                    onTap: _confirmLogout,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
 
               const SizedBox(height: 20),
             ],
@@ -536,5 +657,6 @@ class _ProfileDetailTile extends StatelessWidget {
         ),
       ),
     );
+    
   }
 }

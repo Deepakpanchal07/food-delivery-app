@@ -59,15 +59,59 @@ const register = async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
 
     const existingUser = await User.findOne({
-      email: normalizedEmail,
-    });
-
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: "This email is already registered",
+        email: normalizedEmail,
       });
-    }
+
+      if (existingUser) {
+        // Already verified account: do not create another account.
+        if (existingUser.emailVerified === true) {
+          return res.status(409).json({
+            success: false,
+            message: "This email is already registered. Please log in.",
+          });
+        }
+
+        // Account exists but email is not verified: send a fresh OTP.
+        const otp = crypto.randomInt(100000, 1000000).toString();
+
+        existingUser.emailVerificationOtp = crypto
+          .createHash("sha256")
+          .update(otp)
+          .digest("hex");
+
+        existingUser.emailVerificationOtpExpires = new Date(
+          Date.now() + 10 * 60 * 1000
+        );
+
+        existingUser.emailVerificationOtpAttempts = 0;
+
+        await existingUser.save();
+
+        try {
+          await sendEmailVerificationOtpEmail(existingUser.email, otp);
+
+          return res.status(200).json({
+            success: true,
+            message: "Your account is awaiting verification. A new OTP has been sent.",
+            data: {
+              email: existingUser.email,
+              requiresEmailVerification: true,
+            },
+          });
+        } catch (emailError) {
+          console.error("Resend verification email error:", emailError.message);
+
+          existingUser.emailVerificationOtp = undefined;
+          existingUser.emailVerificationOtpExpires = undefined;
+          existingUser.emailVerificationOtpAttempts = 0;
+          await existingUser.save();
+
+          return res.status(500).json({
+            success: false,
+            message: "Unable to send verification email. Please try again.",
+          });
+        }
+      }
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const otp = crypto.randomInt(100000, 1000000).toString();
@@ -703,5 +747,85 @@ const verifyEmailOtp = async (req, res) => {
   }
 };
 
+const resendEmailOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
 
-module.exports = { register, login, getProfile, updateProfile,changePassword,resetPassword,verifyOtp,forgotPassword,verifyEmailOtp};
+    if (typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found. Please sign up first.",
+      });
+    }
+
+    if (user.emailVerified === true) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified. Please log in.",
+      });
+    }
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+
+    user.emailVerificationOtp = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
+
+    user.emailVerificationOtpExpires = new Date(
+      Date.now() + 10 * 60 * 1000
+    );
+
+    user.emailVerificationOtpAttempts = 0;
+
+    await user.save();
+
+    try {
+      await sendEmailVerificationOtpEmail(user.email, otp);
+    } catch (emailError) {
+      console.error("Resend email OTP error:", emailError.message);
+
+      user.emailVerificationOtp = undefined;
+      user.emailVerificationOtpExpires = undefined;
+      user.emailVerificationOtpAttempts = 0;
+      await user.save();
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to send OTP. Please try again later.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "A new verification OTP has been sent to your email.",
+      data: {
+        email: user.email,
+        requiresEmailVerification: true,
+      },
+    });
+  } catch (error) {
+    console.error("Resend email OTP error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to resend OTP. Please try again.",
+    });
+  }
+};
+
+
+module.exports = { register, login, getProfile, updateProfile,changePassword,resetPassword,verifyOtp,forgotPassword,verifyEmailOtp,resendEmailOtp};
