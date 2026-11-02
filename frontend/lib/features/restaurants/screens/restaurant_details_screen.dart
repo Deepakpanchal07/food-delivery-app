@@ -713,7 +713,7 @@ bool _isSubmittingReview = false;
                     padding: EdgeInsets.all(24),
                     child: Center(
                       child: Text(
-                        'Abhi menu available nahi hai.\n'
+                        'No menu items available.\n'
                         'Please check back later.',
                         textAlign: TextAlign.center,
                       ),
