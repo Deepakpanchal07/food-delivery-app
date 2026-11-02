@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 
 const Review = require("../models/Review");
 const Restaurant = require("../models/Restaurant");
-const User = require("../models/User");
+const User = require("../models/user");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();

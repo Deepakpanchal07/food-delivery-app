@@ -1,74 +1,114 @@
 const express = require("express");
-const reviewRoutes = require("./routes/reviewRoutes");
-const orderRoutes = require('./routes/orderRoutes');
-const emailRoutes = require("./routes/emailRoutes");
 require("dotenv").config();
+
 const cors = require("cors");
-const authRoutes = require("./routes/authRoutes");
 const mongoose = require("mongoose");
+
+const reviewRoutes = require("./routes/reviewRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const emailRoutes = require("./routes/emailRoutes");
+const authRoutes = require("./routes/authRoutes");
 const restaurantRoutes = require("./routes/restaurantRoutes");
 const menuRoutes = require("./routes/menuRoutes");
-const { verifyEmailConnection } = require("./services/emailService");
-
-
-
-verifyEmailConnection();
-
-
-
 
 const app = express();
-console.log("Email user loaded:", Boolean(process.env.EMAIL_USER));
-console.log("Email password loaded:", Boolean(process.env.EMAIL_PASS));
 
 app.use(cors());
-
 app.use(express.json());
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/restaurants",restaurantRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/email", emailRoutes);
 
-app.use("/api/menu", menuRoutes);
-app.use("/api/orders",orderRoutes);
+// MongoDB connection cache for Vercel serverless functions
+let cachedConnection = null;
 
+async function connectDB() {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
 
-app.get("/",(req,res) =>{
-    res.status(200).json({
-        success: true,
-        message: "Food Delivery app is running!",
-    });
-});
-app.get("/api/health",(req,res)=>{
-    const connected = mongoose.connection.readyState ===1;
-    res.status(connected ? 200:500).json({
-        success: true,
-        message: connected ? "API and database are working!"
-                           : "Database is disconnected",
-                           database:connected ? "connected" : "disconnected" 
-    });
-});
+  if (cachedConnection) {
+    return cachedConnection;
+  }
 
-async function startServer(){
-    try{
-        const mongoUri = process.env.MONGODB_URI;
+  const mongoUri = process.env.MONGODB_URI;
 
-        if(!mongoUri) {
-            throw new Error("MONGODB_URI is missing in .env");
-        }
-        await mongoose.connect(mongoUri);
-        console.log("MongoDB connected Sucessfully!");
+  if (!mongoUri) {
+    throw new Error("MONGODB_URI is missing");
+  }
 
-        const PORT = process.env.PORT || 5000;
+  cachedConnection = mongoose.connect(mongoUri);
 
-        app.listen(PORT,"0.0.0.0",()=>{
-            console.log(`server running on port ${PORT}`);
-            console.log(`Health: http://localhost:${PORT}/api/health`);
-        });
-    }catch(error){
-        console.error("Startup failed:",error.message);
-        process.exit(1);
-    }
+  try {
+    await cachedConnection;
+    console.log("MongoDB connected successfully!");
+    return mongoose.connection;
+  } catch (error) {
+    cachedConnection = null;
+    throw error;
+  }
 }
 
-startServer();
+// Connect to MongoDB before handling API requests
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
+});
+
+// API routes
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/restaurants", restaurantRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/email", emailRoutes);
+app.use("/api/menu", menuRoutes);
+app.use("/api/orders", orderRoutes);
+
+// Root endpoint
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Food Delivery app is running!",
+  });
+});
+
+// Health endpoint
+app.get("/api/health", (req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+
+  res.status(connected ? 200 : 500).json({
+    success: connected,
+    message: connected
+      ? "API and database are working!"
+      : "Database is disconnected",
+    database: connected ? "connected" : "disconnected",
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("Server error:", err);
+
+  res.status(500).json({
+    success: false,
+    message: "Internal server error",
+  });
+});
+
+// Export Express app for Vercel
+module.exports = app;
+
+// Start local server only when running directly
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Health: http://localhost:${PORT}/api/health`);
+  });
+}

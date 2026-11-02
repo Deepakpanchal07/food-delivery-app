@@ -1,7 +1,7 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const User = require('../models/User');
+const User = require('../models/user');
 
 const Order = require('../models/Order');
 const Restaurant = require('../models/Restaurant');
